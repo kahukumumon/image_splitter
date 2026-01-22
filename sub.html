@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正方形切り出しツール - Square Cropper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 0 10px;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .preview-section {
+            display: none;
+        }
+
+        .preview-section.active {
+            display: block;
+        }
+
+        #uploadSection {
+            margin-top: 30px;
+        }
+
+        .editor-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .editor-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        #cropCanvas {
+            display: block;
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .crop-frame {
+            position: absolute;
+            border: 3px solid #38ef7d;
+            background: rgba(56, 239, 125, 0.1);
+            box-shadow: 0 0 0 2px rgba(17, 153, 142, 0.5);
+            cursor: move;
+            z-index: 10;
+        }
+
+        .crop-frame::after {
+            content: '↔';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #11998e;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+        }
+
+        .crop-frame.vertical::after {
+            content: '↕';
+        }
+
+        .result-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .result-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .result-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .image-info {
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #11998e;
+            border-radius: 15px;
+            padding: 60px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f0fff8;
+        }
+
+        .upload-area:hover {
+            border-color: #38ef7d;
+            background: #e0fff0;
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #38ef7d;
+            background: #d0ffe8;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #11998e;
+        }
+
+        .upload-area p {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-area small {
+            color: #999;
+            font-size: 0.9rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .download-btn {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto 20px;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .reset-btn {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 15px 30px;
+            background: #fff;
+            color: #11998e;
+            border: 2px solid #11998e;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: #11998e;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            .upload-section {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✂️ 正方形切り出しツール</h1>
+            <p>画像の短辺サイズの正方形で切り出してダウンロード</p>
+            <a href="index.html" class="nav-link">🏠 ホームに戻る</a>
+        </header>
+
+        <section class="preview-section" id="previewSection">
+            <div class="editor-section">
+                <h2>🖱️ 切り出し範囲をドラッグで調整</h2>
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="cropCanvas"></canvas>
+                    <div class="crop-frame" id="cropFrame"></div>
+                </div>
+            </div>
+
+            <div class="result-section" id="resultSection">
+                <h2>📐 切り出しプレビュー</h2>
+                <img id="resultImage" class="result-image" alt="切り出しプレビュー">
+                <div class="image-info" id="imageInfo"></div>
+                <a id="downloadBtn" class="download-btn" download="cropped.jpg">⬇️ ダウンロード</a>
+                <button class="reset-btn" id="resetBtn">🔄 リセット</button>
+            </div>
+        </section>
+
+        <section class="upload-section" id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p>画像をここにドラッグ&ドロップ</p>
+                <p>またはクリックしてファイルを選択</p>
+                <small>対応形式: PNG, JPG, JPEG, WEBP</small>
+            </div>
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/webp">
+        </section>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const cropCanvas = document.getElementById('cropCanvas');
+        const cropFrame = document.getElementById('cropFrame');
+        const resultImage = document.getElementById('resultImage');
+        const imageInfo = document.getElementById('imageInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // グローバル変数
+        let originalImage = null;
+        let originalFileName = '';
+        let canvasScale = 1;
+        let squareSize = 0;
+        let cropPosition = { x: 0, y: 0 };
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+
+        // クリックでファイル選択
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // ファイル選択時の処理
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleImage(e.target.files[0]);
+            }
+        });
+
+        // ドラッグ&ドロップの処理
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleImage(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 画像処理メインロジック
+        function handleImage(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('画像ファイルを選択してください');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    originalFileName = file.name;
+                    initializeCanvas();
+                    previewSection.classList.add('active');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Canvasの初期化
+        function initializeCanvas() {
+            const maxWidth = 800;
+            canvasScale = Math.min(1, maxWidth / originalImage.width);
+            const displayWidth = originalImage.width * canvasScale;
+            const displayHeight = originalImage.height * canvasScale;
+
+            cropCanvas.width = displayWidth;
+            cropCanvas.height = displayHeight;
+
+            const ctx = cropCanvas.getContext('2d');
+            ctx.drawImage(originalImage, 0, 0, displayWidth, displayHeight);
+
+            // 短辺のサイズを正方形の一辺とする
+            squareSize = Math.min(originalImage.width, originalImage.height);
+            const displaySquareSize = squareSize * canvasScale;
+
+            // 初期位置を中央に
+            if (originalImage.width > originalImage.height) {
+                // 横長画像の場合、上下左右中央（左右のみ移動可能）
+                cropPosition.x = (displayWidth - displaySquareSize) / 2;
+                cropPosition.y = (displayHeight - displaySquareSize) / 2;
+                cropFrame.style.width = displaySquareSize + 'px';
+                cropFrame.style.height = displaySquareSize + 'px';
+                cropFrame.style.top = cropPosition.y + 'px';
+                cropFrame.style.left = cropPosition.x + 'px';
+                cropFrame.classList.remove('vertical');
+            } else {
+                // 縦長画像の場合、上下のみ移動可能
+                cropPosition.x = (displayWidth - displaySquareSize) / 2;
+                cropPosition.y = (displayHeight - displaySquareSize) / 2;
+                cropFrame.style.width = displaySquareSize + 'px';
+                cropFrame.style.height = displaySquareSize + 'px';
+                cropFrame.style.top = cropPosition.y + 'px';
+                cropFrame.style.left = cropPosition.x + 'px';
+                cropFrame.classList.add('vertical');
+            }
+
+            // 最初の切り出し結果を表示
+            updateCroppedImage();
+        }
+
+        // 切り出しフレームのドラッグ
+        cropFrame.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            dragStart.x = e.clientX - cropPosition.x;
+            dragStart.y = e.clientY - cropPosition.y;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const displaySquareSize = squareSize * canvasScale;
+            const rect = cropCanvas.getBoundingClientRect();
+
+            if (originalImage.width > originalImage.height) {
+                // 横長画像の場合、左右のみ移動
+                let newX = e.clientX - dragStart.x;
+                const maxX = cropCanvas.width - displaySquareSize;
+                const minX = 0;
+
+                if (newX < minX) newX = minX;
+                if (newX > maxX) newX = maxX;
+
+                cropPosition.x = newX;
+                cropFrame.style.left = cropPosition.x + 'px';
+            } else {
+                // 縦長画像の場合、上下のみ移動
+                let newY = e.clientY - dragStart.y;
+                const maxY = cropCanvas.height - displaySquareSize;
+                const minY = 0;
+
+                if (newY < minY) newY = minY;
+                if (newY > maxY) newY = maxY;
+
+                cropPosition.y = newY;
+                cropFrame.style.top = cropPosition.y + 'px';
+            }
+
+            updateCroppedImage();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // 切り出し画像を更新
+        function updateCroppedImage() {
+            const cropCanvas2 = document.createElement('canvas');
+            const ctx = cropCanvas2.getContext('2d');
+
+            cropCanvas2.width = squareSize;
+            cropCanvas2.height = squareSize;
+
+            const sourceX = cropPosition.x / canvasScale;
+            const sourceY = cropPosition.y / canvasScale;
+
+            ctx.drawImage(
+                originalImage,
+                sourceX, sourceY, squareSize, squareSize,
+                0, 0, squareSize, squareSize
+            );
+
+            const dataUrl = cropCanvas2.toDataURL('image/jpeg', 0.95);
+            resultImage.src = dataUrl;
+            imageInfo.textContent = `サイズ: ${Math.round(squareSize)} × ${Math.round(squareSize)} px`;
+            downloadBtn.href = dataUrl;
+            downloadBtn.download = `${getFileNameWithoutExt(originalFileName)}_square.jpg`;
+        }
+
+        // リセットボタン
+        resetBtn.addEventListener('click', () => {
+            if (originalImage) {
+                initializeCanvas();
+            }
+        });
+
+        // ファイル名から拡張子を除いた部分を取得
+        function getFileNameWithoutExt(filename) {
+            const lastDotIndex = filename.lastIndexOf('.');
+            return lastDotIndex !== -1 ? filename.substring(0, lastDotIndex) : filename;
+        }
+    </script>
+</body>
+</html>
