@@ -164,7 +164,6 @@
 
         .result-image {
             max-width: 100%;
-            max-height: 300px;
             border-radius: 10px;
             margin-bottom: 15px;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
@@ -293,31 +292,22 @@
         </header>
 
         <section class="preview-section" id="previewSection">
-            <div class="editor-section">
-                <h2>🖱️ トリミング枠をドラッグ・リサイズで調整</h2>
-                <div class="canvas-container" id="canvasContainer">
-                    <canvas id="cropCanvas"></canvas>
-                    <div class="crop-frame" id="cropFrame">
-                        <div class="resize-handle nw" data-handle="nw"></div>
-                        <div class="resize-handle ne" data-handle="ne"></div>
-                        <div class="resize-handle sw" data-handle="sw"></div>
-                        <div class="resize-handle se" data-handle="se"></div>
+            <div class="results-container">
+                <div class="result-section" id="editorResultSection">
+                    <h2>🖱️ トリミング枠をドラッグ・リサイズで調整</h2>
+                    <div class="canvas-container" id="canvasContainer">
+                        <canvas id="cropCanvas"></canvas>
+                        <div class="crop-frame" id="cropFrame">
+                            <div class="resize-handle nw" data-handle="nw"></div>
+                            <div class="resize-handle ne" data-handle="ne"></div>
+                            <div class="resize-handle sw" data-handle="sw"></div>
+                            <div class="resize-handle se" data-handle="se"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="controls-section" id="controlsSection" style="display: none;">
-                <h3>📏 トリミング枠サイズ</h3>
-                <div class="slider-container">
-                    <span class="slider-label">サイズ:</span>
-                    <input type="range" id="sizeSlider" min="1" max="100" value="100">
-                    <span class="slider-value" id="sizeValue">100%</span>
-                </div>
-            </div>
-
-            <div class="results-container" id="resultsContainer">
                 <div class="result-section" id="mainResultSection">
-                    <h2>📐 トリミング結果（原寸）</h2>
+                    <h2>📐 トリミング結果</h2>
                     <img id="mainResultImage" class="result-image" alt="トリミング結果">
                     <div class="image-info" id="mainImageInfo"></div>
                     <a id="mainDownloadBtn" class="download-btn" download="cropped.jpg">⬇️ ダウンロード</a>
@@ -361,15 +351,11 @@
         const aspectResultImage = document.getElementById('aspectResultImage');
         const aspectImageInfo = document.getElementById('aspectImageInfo');
         const resetBtn = document.getElementById('resetBtn');
-        const controlsSection = document.getElementById('controlsSection');
-        const sizeSlider = document.getElementById('sizeSlider');
-        const sizeValue = document.getElementById('sizeValue');
 
         // グローバル変数
         let originalImage = null;
         let originalFileName = '';
         let canvasScale = 1;
-        let originalCanvasSize = { width: 0, height: 0 }; // 元のキャンバスサイズ
         let cropFrameSize = { width: 200, height: 200 };
         let cropPosition = { x: 0, y: 0 };
         let isDragging = false;
@@ -444,9 +430,6 @@
             cropCanvas.width = displayWidth;
             cropCanvas.height = displayHeight;
 
-            originalCanvasSize.width = displayWidth;
-            originalCanvasSize.height = displayHeight;
-
             const ctx = cropCanvas.getContext('2d');
             ctx.drawImage(originalImage, 0, 0, displayWidth, displayHeight);
 
@@ -458,10 +441,6 @@
             cropPosition.x = (displayWidth - cropFrameSize.width) / 2;
             cropPosition.y = (displayHeight - cropFrameSize.height) / 2;
 
-            // スライダーを100%に設定
-            sizeSlider.value = 100;
-            sizeValue.textContent = '100%';
-
             updateCropFrame();
             updateCroppedImages();
         }
@@ -472,18 +451,6 @@
             cropFrame.style.height = cropFrameSize.height + 'px';
             cropFrame.style.top = cropPosition.y + 'px';
             cropFrame.style.left = cropPosition.x + 'px';
-        }
-
-        // スライダーの値を更新
-        function updateSliderValue() {
-            if (!originalCanvasSize.width) return;
-            
-            const widthRatio = (cropFrameSize.width / originalCanvasSize.width) * 100;
-            const heightRatio = (cropFrameSize.height / originalCanvasSize.height) * 100;
-            const averageRatio = Math.round((widthRatio + heightRatio) / 2);
-            
-            sizeSlider.value = Math.max(1, Math.min(100, averageRatio));
-            sizeValue.textContent = sizeSlider.value + '%';
         }
 
         // 切り出しフレームのドラッグ
@@ -521,41 +488,34 @@
                 let newSize = { width: resizeStartSize.width, height: resizeStartSize.height };
                 let newPos = { x: resizeStartPos.x, y: resizeStartPos.y };
 
+                // 幅の変更
                 if (resizeHandle.includes('e')) {
-                    newSize.width = Math.max(minSize, resizeStartSize.width + dx);
-                    // 画像外にはみ出さないように
-                    if (newPos.x + newSize.width > cropCanvas.width) {
-                        newSize.width = cropCanvas.width - newPos.x;
-                    }
+                    // 右端をドラッグ
+                    newSize.width = Math.max(minSize, Math.min(resizeStartSize.width + dx, cropCanvas.width - newPos.x));
                 }
                 if (resizeHandle.includes('w')) {
-                    const newWidth = Math.max(minSize, resizeStartSize.width - dx);
-                    if (resizeStartPos.x + newWidth <= cropCanvas.width && resizeStartPos.x + newWidth - (resizeStartPos.x + resizeStartSize.width - newWidth) >= 0) {
-                        newSize.width = newWidth;
-                        newPos.x = resizeStartPos.x + (resizeStartSize.width - newSize.width);
-                    }
+                    // 左端をドラッグ
+                    const newWidth = Math.max(minSize, Math.min(resizeStartSize.width - dx, resizeStartPos.x + resizeStartSize.width));
+                    newSize.width = newWidth;
+                    newPos.x = resizeStartPos.x + resizeStartSize.width - newWidth;
                 }
+
+                // 高さの変更
                 if (resizeHandle.includes('s')) {
-                    newSize.height = Math.max(minSize, resizeStartSize.height + dy);
-                    if (newPos.y + newSize.height > cropCanvas.height) {
-                        newSize.height = cropCanvas.height - newPos.y;
-                    }
+                    // 下端をドラッグ
+                    newSize.height = Math.max(minSize, Math.min(resizeStartSize.height + dy, cropCanvas.height - newPos.y));
                 }
                 if (resizeHandle.includes('n')) {
-                    const newHeight = Math.max(minSize, resizeStartSize.height - dy);
-                    if (resizeStartPos.y + newHeight <= cropCanvas.height && resizeStartPos.y + newHeight - (resizeStartPos.y + resizeStartSize.height - newHeight) >= 0) {
-                        newSize.height = newHeight;
-                        newPos.y = resizeStartPos.y + (resizeStartSize.height - newSize.height);
-                    }
+                    // 上端をドラッグ
+                    const newHeight = Math.max(minSize, Math.min(resizeStartSize.height - dy, resizeStartPos.y + resizeStartSize.height));
+                    newSize.height = newHeight;
+                    newPos.y = resizeStartPos.y + resizeStartSize.height - newHeight;
                 }
 
                 cropFrameSize.width = newSize.width;
                 cropFrameSize.height = newSize.height;
                 cropPosition.x = newPos.x;
                 cropPosition.y = newPos.y;
-
-                // スライダー値を更新
-                updateSliderValue();
 
                 updateCropFrame();
                 updateCroppedImages();
@@ -586,27 +546,6 @@
             isDragging = false;
             isResizing = false;
             resizeHandle = null;
-        });
-
-        // スライダーでトリミング枠サイズを調整
-        sizeSlider.addEventListener('input', () => {
-            if (!originalImage) return;
-            
-            const percentage = parseInt(sizeSlider.value);
-            sizeValue.textContent = percentage + '%';
-            
-            // アスペクト比を維持してサイズを変更
-            const newWidth = originalCanvasSize.width * (percentage / 100);
-            const newHeight = originalCanvasSize.height * (percentage / 100);
-            
-            // 中央に配置
-            cropFrameSize.width = newWidth;
-            cropFrameSize.height = newHeight;
-            cropPosition.x = (cropCanvas.width - newWidth) / 2;
-            cropPosition.y = (cropCanvas.height - newHeight) / 2;
-            
-            updateCropFrame();
-            updateCroppedImages();
         });
 
         // 切り出し画像を更新
@@ -645,13 +584,13 @@
             mainDownloadBtn.href = mainDataUrl;
             mainDownloadBtn.download = `${getFileNameWithoutExt(originalFileName)}_cropped.jpg`;
 
-            // アスペクト比に応じた追加トリミング（トリミング結果から内接）
+            // アスペクト比に応じた追加トリミング
             if (aspectRatio > 16 / 9) {
-                // 16:9より横長 → 16:9でトリミング（内接）
+                // 16:9より横長 → 16:9でトリミング
                 aspectResultSection.style.display = 'block';
-                aspectResultTitle.textContent = '📺 16:9 トリミング（内接）';
+                aspectResultTitle.textContent = '📺 16:9 トリミング';
 
-                // 高さを基準にして幅を調整（内接）
+                // 高さを基準にして幅を調整
                 const targetHeight = sourceHeight;
                 const targetWidth = targetHeight * (16 / 9);
                 const cropX = (sourceWidth - targetWidth) / 2;
@@ -671,11 +610,11 @@
                 aspectResultImage.src = aspectDataUrl;
                 aspectImageInfo.textContent = `サイズ: ${Math.round(targetWidth)} × ${Math.round(targetHeight)} px | 16:9`;
             } else if (aspectRatio < 3 / 4) {
-                // 3:4より縦長 → 3:4でトリミング（内接）
+                // 3:4より縦長 → 3:4でトリミング
                 aspectResultSection.style.display = 'block';
-                aspectResultTitle.textContent = '📱 3:4 トリミング（内接）';
+                aspectResultTitle.textContent = '📱 3:4 トリミング';
 
-                // 幅を基準にして高さを調整（内接）
+                // 幅を基準にして高さを調整
                 const targetWidth = sourceWidth;
                 const targetHeight = targetWidth * (4 / 3);
                 const cropY = (sourceHeight - targetHeight) / 2;
